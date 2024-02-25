@@ -12,27 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM gcr.io/cloud-builders/bazel:latest AS build
+ARG BAZEL_VERSION=:7.0.1
+FROM gcr.io/bazel-public/bazel${BAZEL_VERSION} AS build
 COPY . .
-RUN ./cloudbuild.sh build //java/com/google/copybara:copybara_deploy.jar
-RUN mkdir -p /tmp/copybara && \
-  cp bazel-bin/java/com/google/copybara/copybara_deploy.jar /tmp/copybara/
+RUN bazel build //java/com/google/copybara:copybara_deploy.jar
 
 FROM golang:latest AS buildtools
 RUN go install github.com/bazelbuild/buildtools/buildozer@latest
 RUN go install github.com/bazelbuild/buildtools/buildifier@latest
 
 FROM openjdk:11-jre-slim
-WORKDIR /usr/src/app
-ENV COPYBARA_CONFIG=copy.bara.sky \
-  COPYBARA_SUBCOMMAND=migrate \
-  COPYBARA_OPTIONS='' \
-  COPYBARA_WORKFLOW=default \
-  COPYBARA_SOURCEREF=''
-COPY --from=build /tmp/copybara/ /opt/copybara/
+# Install git and cleanup apt cache afterwards to keep image size small
+RUN apt-get update && apt-get install -y \
+        git \
+    && apt upgrade openssh-client -y \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=build /home/ubuntu/bazel-bin/java/com/google/copybara/copybara_deploy.jar /opt/copybara/
 COPY --from=buildtools /go/bin/buildozer /go/bin/buildifier /usr/bin/
-COPY .docker/entrypoint.sh /usr/local/bin/copybara
-RUN chmod +x /usr/local/bin/copybara
-RUN apt-get update && \
-  apt-get install -y git && \
-  apt-get clean
+COPY .docker/copybara /usr/local/bin/copybara
+

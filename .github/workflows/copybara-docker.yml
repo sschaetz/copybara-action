@@ -1,0 +1,48 @@
+on:
+  - push
+
+jobs:
+  publish-copybara:
+    name: Publish to Docker Hub
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: google/copybara
+          fetch-depth: 1
+          # This is one commit before the Docker build broke
+          ref: 5e3d88cf01a890ab5e74ad8d6c2f7ac27af851d9
+
+      - name: Get Copybara commit sha we are building image for
+        run: |
+          echo "COPYBARA_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      #- name: Use working Dockerfile
+      #  run: |
+      #  curl -s https://raw.githubusercontent.com/sschaetz/copybara-action/main/.github/Dockerfile > Dockerfile
+
+      - name: Generate metadata for docker image
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: |
+            einervondenen/copybara
+          tags: |
+            type=raw,${{ env.COPYBARA_SHA }}
+          flavor: |
+            latest=true
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: einervondenen
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
