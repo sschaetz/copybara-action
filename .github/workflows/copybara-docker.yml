@@ -17,9 +17,9 @@ jobs:
         run: |
           echo "COPYBARA_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      #- name: Use working Dockerfile
-      #  run: |
-      #  curl -s https://raw.githubusercontent.com/sschaetz/copybara-action/main/.github/Dockerfile > Dockerfile
+      - name: Use working Dockerfile
+        run: |
+          curl -s https://raw.githubusercontent.com/sschaetz/copybara-action/main/.github/Dockerfile > Dockerfile
 
       - name: Generate metadata for docker image
         id: meta
